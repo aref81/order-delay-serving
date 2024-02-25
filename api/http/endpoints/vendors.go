@@ -1,12 +1,16 @@
 package endpoints
 
-import "github.com/labstack/echo/v4"
+import (
+	"OrderDelayServing/pkg/repository"
+	"github.com/labstack/echo/v4"
+)
 
 type Vendors struct {
+	vendorRepo repository.VendorRepo
 }
 
-func NewVendors() *Vendors {
-	return &Vendors{}
+func NewVendors(vendorRepo repository.VendorRepo) *Vendors {
+	return &Vendors{vendorRepo: vendorRepo}
 }
 
 func (h *Vendors) NewVendorsHandler(g *echo.Group) {

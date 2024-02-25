@@ -28,17 +28,23 @@ func initRepos(db *gorm.DB) *repos {
 }
 
 func Run(conf *config.Config, db *gorm.DB) {
-	_ = initRepos(db)
+	repos := initRepos(db)
 
 	e := echo.New()
 
-	dr := endpoints.NewDelayReports()
-	v := endpoints.NewVendors()
+	agents := endpoints.NewAgents(repos.agentRepo)
+	delayReports := endpoints.NewDelayReports(repos.delayReportRepo)
+	orders := endpoints.NewOrders(repos.orderRepo)
+	trips := endpoints.NewTrips(repos.tripRepo)
+	vendors := endpoints.NewVendors(repos.vendorRepo)
 
 	apiGroup := e.Group("/api")
 
-	dr.NewDelayReportsHandler(apiGroup)
-	v.NewVendorsHandler(apiGroup)
+	agents.NewAgentsHandler(apiGroup)
+	delayReports.NewDelayReportsHandler(apiGroup)
+	orders.NewOrdersHandler(apiGroup)
+	trips.NewTripsHandler(apiGroup)
+	vendors.NewVendorsHandler(apiGroup)
 
 	if err := e.Start(conf.Server.Address + ":" + conf.Server.Port); err != nil {
 		logrus.Fatalf("server failed to start %v", err)

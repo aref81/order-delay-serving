@@ -1,12 +1,16 @@
 package endpoints
 
-import "github.com/labstack/echo/v4"
+import (
+	"OrderDelayServing/pkg/repository"
+	"github.com/labstack/echo/v4"
+)
 
 type DelayReports struct {
+	delayReportRepo repository.DelayReportRepo
 }
 
-func NewDelayReports() *DelayReports {
-	return &DelayReports{}
+func NewDelayReports(DelayReportRepo repository.DelayReportRepo) *DelayReports {
+	return &DelayReports{delayReportRepo: DelayReportRepo}
 }
 
 func (h *DelayReports) NewDelayReportsHandler(g *echo.Group) {
