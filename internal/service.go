@@ -3,6 +3,8 @@ package internal
 import (
 	"OrderDelayServing/api/http"
 	"OrderDelayServing/internal/config"
+	"OrderDelayServing/pkg/model"
+	"OrderDelayServing/utils/datasources"
 	"github.com/sirupsen/logrus"
 )
 
@@ -12,5 +14,15 @@ func Run() {
 		logrus.Warnln("error in loading configs")
 	}
 
-	http.Run(appConfig)
+	db, err := datasources.InitPostgres(appConfig)
+	if err != nil {
+		logrus.Fatalf("failed to connect database: %v", err)
+	}
+
+	err = model.Migrate(db)
+	if err != nil {
+		logrus.Fatalf("failed to apply migrations: %v", err)
+	}
+
+	http.Run(appConfig, db)
 }
