@@ -44,7 +44,7 @@ func (h *DelayReports) NewDelayReportsHandler(g *echo.Group) {
 	reportsGroup := g.Group("/reports")
 
 	reportsGroup.POST("", h.reportDelay)
-	reportsGroup.GET("", h.getQueuedReport)
+	reportsGroup.GET("/:agentID", h.getQueuedReport)
 }
 
 func (h *DelayReports) reportDelay(c echo.Context) error {
@@ -85,7 +85,7 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 }
 
 func (h *DelayReports) getQueuedReport(c echo.Context) error {
-	aID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	aID, err := strconv.ParseUint(c.Param("agentID"), 10, 32)
 	agentID := uint(aID)
 
 	if err != nil {
