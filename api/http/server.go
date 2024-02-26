@@ -36,7 +36,7 @@ func Run(conf *config.Config, db *gorm.DB) {
 	delayReports := endpoints.NewDelayReports(repos.delayReportRepo)
 	orders := endpoints.NewOrders(repos.orderRepo)
 	trips := endpoints.NewTrips(repos.tripRepo)
-	vendors := endpoints.NewVendors(repos.vendorRepo)
+	vendors := endpoints.NewVendors(repos.vendorRepo, repos.orderRepo)
 
 	apiGroup := e.Group("/api")
 

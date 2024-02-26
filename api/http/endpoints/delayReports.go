@@ -14,10 +14,10 @@ func NewDelayReports(DelayReportRepo repository.DelayReportRepo) *DelayReports {
 }
 
 func (h *DelayReports) NewDelayReportsHandler(g *echo.Group) {
-	reportGroup := g.Group("/reports")
+	reportsGroup := g.Group("/reports")
 
-	reportGroup.POST("", h.reportDelay)
-	reportGroup.GET("", h.getQueuedReport)
+	reportsGroup.POST("", h.reportDelay)
+	reportsGroup.GET("", h.getQueuedReport)
 }
 
 func (h *DelayReports) reportDelay(c echo.Context) error {
