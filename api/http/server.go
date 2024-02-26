@@ -27,7 +27,7 @@ func Run(conf *config.Config, repos *repository.Repos, rabbit *broker.RabbitMQ) 
 	trips.NewTripsHandler(apiGroup)
 	vendors.NewVendorsHandler(apiGroup)
 
-	if err := e.Start(conf.Server.Address + ":" + conf.Server.Port); err != nil {
+	if err := e.Start(":" + conf.Server.Port); err != nil {
 		logrus.Fatalf("server failed to start %v", err)
 	}
 }
