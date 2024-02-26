@@ -6,7 +6,9 @@ import (
 	"OrderDelayServing/utils/broker"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
 	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 	"net/http"
@@ -16,6 +18,13 @@ import (
 
 type DelayResponse struct {
 	Delay int `json:"delay"`
+}
+
+type ReviewSubmission struct {
+	ReportID uint          `json:"reportID"`
+	AgentID  uint          `json:"agentID"`
+	Status   string        `json:"status"`
+	Delay    time.Duration `json:"deliveryTime"`
 }
 
 type DelayReports struct {
@@ -44,12 +53,15 @@ func (h *DelayReports) NewDelayReportsHandler(g *echo.Group) {
 	reportsGroup := g.Group("/reports")
 
 	reportsGroup.POST("", h.reportDelay)
-	reportsGroup.GET("/:agentID", h.getQueuedReport)
+	reportsGroup.POST("/:agentID", h.getQueuedReport)
 	reportsGroup.GET("", h.getVendorsSummary)
+	reportsGroup.POST("/review", h.submitReview)
 }
 
 func (h *DelayReports) reportDelay(c echo.Context) error {
 	newReport := new(model.DelayReport)
+	var msg string
+
 	if err := c.Bind(newReport); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
@@ -66,7 +78,7 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 		}
 	}
 
-	if !order.RegisteredAt.Add(order.DeliveryTime).After(time.Now()) {
+	if order.RegisteredAt.Add(order.DeliveryTime).After(time.Now()) {
 		return c.JSON(http.StatusOK, map[string]string{"msg": "can't report delay before a trip's delivery time"})
 	}
 
@@ -83,6 +95,7 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 
 		newReport.DelayAmount = newDelay
 		order.DeliveryTime = order.DeliveryTime + newDelay
+		msg = fmt.Sprintf("The order will be delivered to you in %f minutes", newDelay.Minutes())
 	}
 
 	newReport.IssuedAt = time.Now()
@@ -95,14 +108,17 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 		trip.Status == model.TripStatusPicked || trip.Status == model.TripStatusAtVendor) {
 		err := h.enqueueReport(&report)
 		trip.Status = model.TripStatusQueued
+		msg = fmt.Sprintf("this order is queued for review")
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to send report ID to RabbitMQ"})
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to send report ReportID to RabbitMQ"})
 		}
 	}
 
-	err = h.tripRepo.Update(c.Request().Context(), trip)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	if !errors.Is(DBerr, gorm.ErrRecordNotFound) {
+		err = h.tripRepo.Update(c.Request().Context(), trip)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
 	}
 
 	err = h.orderRepo.Update(c.Request().Context(), order)
@@ -110,7 +126,7 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusCreated, report)
+	return c.JSON(http.StatusOK, map[string]string{"msg": msg})
 }
 
 func (h *DelayReports) getQueuedReport(c echo.Context) error {
@@ -140,20 +156,22 @@ func (h *DelayReports) getQueuedReport(c echo.Context) error {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 	}
 
-	trip, err := h.tripRepo.GetByOrderID(c.Request().Context(), report.OrderID)
-	if err != nil {
-		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	trip, tripErr := h.tripRepo.GetByOrderID(c.Request().Context(), report.OrderID)
+	if tripErr != nil {
+		logrus.Warnf("error: %v", err)
 	}
 
-	if trip.Status != model.TripStatusQueued {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"msg": "error while fetching report, please try again"})
-	}
+	if tripErr == nil {
+		if trip.Status != model.TripStatusQueued {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"msg": "error while fetching report, please try again"})
+		}
 
-	trip.Status = model.TripStatusOnReview
+		trip.Status = model.TripStatusOnReview
 
-	err = h.tripRepo.Update(c.Request().Context(), trip)
-	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		err = h.tripRepo.Update(c.Request().Context(), trip)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
 	}
 
 	agent.CurrentReportID = reportID
@@ -173,6 +191,64 @@ func (h *DelayReports) getVendorsSummary(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, vendorsSummary)
+}
+
+func (h *DelayReports) submitReview(c echo.Context) error {
+	submission := new(ReviewSubmission)
+	if err := c.Bind(submission); err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
+	}
+
+	//rID, err := strconv.ParseUint(c.Param("reportID"), 10, 32)
+	//reportID := uint(rID)
+	//
+	//if err != nil {
+	//	return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+	//}
+
+	report, err := h.delayReportRepo.Get(c.Request().Context(), submission.ReportID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
+	trip, tripErr := h.tripRepo.GetByOrderID(c.Request().Context(), report.OrderID)
+	if tripErr != nil {
+		logrus.Warnf("error: %v", err)
+	}
+
+	if tripErr == nil {
+		if trip.Status != model.TripStatusOnReview {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"msg": "this report is not under review"})
+		}
+	}
+
+	order, err := h.orderRepo.Get(c.Request().Context(), trip.OrderID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
+	trip.Status = submission.Status
+	order.DeliveryTime = order.DeliveryTime + submission.Delay
+	report.DelayAmount = submission.Delay
+
+	if tripErr == nil {
+		err = h.tripRepo.Update(c.Request().Context(), trip)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		}
+	}
+
+	err = h.orderRepo.Update(c.Request().Context(), order)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	err = h.delayReportRepo.Update(c.Request().Context(), report)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, map[string]string{"msg": "review submitted successfully"})
 }
 
 func (h *DelayReports) enqueueReport(report *model.DelayReport) error {

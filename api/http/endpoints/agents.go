@@ -26,6 +26,7 @@ func (h *Agents) createNewAgent(c echo.Context) error {
 	if err := c.Bind(newAgent); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
+	newAgent.IsAvailable = true
 
 	agent, err := h.agentRepo.Create(c.Request().Context(), *newAgent)
 	if err != nil {

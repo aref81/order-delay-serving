@@ -7,6 +7,7 @@ const (
 	TripStatusAssigned  = "ASSIGNED"
 	TripStatusQueued    = "QUEUED"
 	TripStatusOnReview  = "ONREVIEW"
+	TripStatusReviewed  = "REVIEWED"
 )
 
 type Trip struct {
