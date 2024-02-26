@@ -54,12 +54,27 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
+	order, err := h.orderRepo.Get(c.Request().Context(), newReport.OrderID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
 	trip, DBerr := h.tripRepo.GetByOrderID(c.Request().Context(), newReport.OrderID)
 	if DBerr != nil {
 		if !errors.Is(DBerr, gorm.ErrRecordNotFound) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": DBerr.Error()})
 		}
-	} else if trip.Status == model.TripStatusAssigned || trip.Status == model.TripStatusPicked ||
+	}
+
+	if !order.RegisteredAt.Add(order.DeliveryTime).After(time.Now()) {
+		return c.JSON(http.StatusOK, map[string]string{"msg": "can't report delay before a trip's delivery time"})
+	}
+
+	if trip.Status == model.TripStatusQueued || trip.Status == model.TripStatusOnReview {
+		return c.JSON(http.StatusOK, map[string]string{"msg": "this trip is still under review"})
+	}
+
+	if trip.Status == model.TripStatusAssigned || trip.Status == model.TripStatusPicked ||
 		trip.Status == model.TripStatusAtVendor {
 		newDelay, err := requestNewDelay()
 		if err != nil {
@@ -67,6 +82,7 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 		}
 
 		newReport.DelayAmount = newDelay
+		order.DeliveryTime = order.DeliveryTime + newDelay
 	}
 
 	newReport.IssuedAt = time.Now()
@@ -78,9 +94,20 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 	if errors.Is(DBerr, gorm.ErrRecordNotFound) || !(trip.Status == model.TripStatusAssigned ||
 		trip.Status == model.TripStatusPicked || trip.Status == model.TripStatusAtVendor) {
 		err := h.enqueueReport(&report)
+		trip.Status = model.TripStatusQueued
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to send report ID to RabbitMQ"})
 		}
+	}
+
+	err = h.tripRepo.Update(c.Request().Context(), trip)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	err = h.orderRepo.Update(c.Request().Context(), order)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
 	return c.JSON(http.StatusCreated, report)
@@ -100,7 +127,7 @@ func (h *DelayReports) getQueuedReport(c echo.Context) error {
 	}
 
 	if !agent.IsAvailable {
-		return c.JSON(http.StatusNotAcceptable, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusOK, map[string]string{"msg": "can't assign more than one report to any agent"})
 	}
 
 	reportID, err := h.dequeueReport()
@@ -116,6 +143,10 @@ func (h *DelayReports) getQueuedReport(c echo.Context) error {
 	trip, err := h.tripRepo.GetByOrderID(c.Request().Context(), report.OrderID)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
+	if trip.Status != model.TripStatusQueued {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"msg": "error while fetching report, please try again"})
 	}
 
 	trip.Status = model.TripStatusOnReview
