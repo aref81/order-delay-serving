@@ -7,7 +7,7 @@ import (
 )
 
 type VendorRepo interface {
-	Create(ctx context.Context, vendor model.Vendor) error
+	Create(ctx context.Context, vendor model.Vendor) (model.Vendor, error)
 	Get(ctx context.Context, vendorID uint) (model.Vendor, error)
 	Update(ctx context.Context, vendor model.Vendor) error
 	Delete(ctx context.Context, vendorID uint) error
@@ -23,13 +23,13 @@ func NewVendorRepo(db *gorm.DB) *VendorRepoImpl {
 	}
 }
 
-func (r *VendorRepoImpl) Create(ctx context.Context, vendor model.Vendor) error {
+func (r *VendorRepoImpl) Create(ctx context.Context, vendor model.Vendor) (model.Vendor, error) {
 	result := r.db.WithContext(ctx).Create(vendor)
 	if result.Error != nil {
-		return result.Error
+		return model.Vendor{}, result.Error
 	}
 
-	return nil
+	return vendor, nil
 }
 
 func (r *VendorRepoImpl) Get(ctx context.Context, vendorID uint) (model.Vendor, error) {

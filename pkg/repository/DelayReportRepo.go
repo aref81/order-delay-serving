@@ -7,7 +7,7 @@ import (
 )
 
 type DelayReportRepo interface {
-	Create(ctx context.Context, report model.DelayReport) error
+	Create(ctx context.Context, report model.DelayReport) (model.DelayReport, error)
 	Get(ctx context.Context, reportID uint) (model.DelayReport, error)
 	Update(ctx context.Context, report model.DelayReport) error
 	Delete(ctx context.Context, reportID uint) error
@@ -23,13 +23,13 @@ func NewDelayReportRepo(db *gorm.DB) *DelayReportRepoImpl {
 	}
 }
 
-func (r *DelayReportRepoImpl) Create(ctx context.Context, report model.DelayReport) error {
-	result := r.db.WithContext(ctx).Create(report)
+func (r *DelayReportRepoImpl) Create(ctx context.Context, report model.DelayReport) (model.DelayReport, error) {
+	result := r.db.WithContext(ctx).Create(&report)
 	if result.Error != nil {
-		return result.Error
+		return model.DelayReport{}, result.Error
 	}
 
-	return nil
+	return report, nil
 }
 
 func (r *DelayReportRepoImpl) Get(ctx context.Context, reportID uint) (model.DelayReport, error) {

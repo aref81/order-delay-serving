@@ -8,7 +8,7 @@ const (
 )
 
 type Trip struct {
-	ID      uint   `gorm:"primaryKey"`
-	OrderID uint   `gorm:"not null"` // One-to-One relationship with Order
-	Status  string `gorm:"not null; type:varchar(10)"`
+	ID      uint   `gorm:"primaryKey;autoIncrement;"json:"id"`
+	OrderID uint   `gorm:"not null"json:"orderID"` // One-to-One relationship with Order
+	Status  string `gorm:"not null; type:varchar(10)"json:"status"`
 }

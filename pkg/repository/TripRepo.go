@@ -7,7 +7,7 @@ import (
 )
 
 type TripRepo interface {
-	Create(ctx context.Context, trip model.Trip) error
+	Create(ctx context.Context, trip model.Trip) (model.Trip, error)
 	Get(ctx context.Context, tripID uint) (model.Trip, error)
 	Update(ctx context.Context, trip model.Trip) error
 	Delete(ctx context.Context, tripID uint) error
@@ -23,13 +23,13 @@ func NewTripRepo(db *gorm.DB) *TripRepoImpl {
 	}
 }
 
-func (r *TripRepoImpl) Create(ctx context.Context, trip model.Trip) error {
+func (r *TripRepoImpl) Create(ctx context.Context, trip model.Trip) (model.Trip, error) {
 	result := r.db.WithContext(ctx).Create(trip)
 	if result.Error != nil {
-		return result.Error
+		return model.Trip{}, result.Error
 	}
 
-	return nil
+	return trip, nil
 }
 
 func (r *TripRepoImpl) Get(ctx context.Context, tripID uint) (model.Trip, error) {

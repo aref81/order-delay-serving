@@ -7,7 +7,7 @@ import (
 )
 
 type AgentRepo interface {
-	Create(ctx context.Context, agent model.Agent) error
+	Create(ctx context.Context, agent model.Agent) (model.Agent, error)
 	Get(ctx context.Context, agentID uint) (model.Agent, error)
 	Update(ctx context.Context, agent model.Agent) error
 	Delete(ctx context.Context, agentID uint) error
@@ -23,13 +23,13 @@ func NewAgentRepo(db *gorm.DB) *AgentRepoImpl {
 	}
 }
 
-func (r *AgentRepoImpl) Create(ctx context.Context, agent model.Agent) error {
-	result := r.db.WithContext(ctx).Create(agent)
+func (r *AgentRepoImpl) Create(ctx context.Context, agent model.Agent) (model.Agent, error) {
+	result := r.db.WithContext(ctx).Create(&agent)
 	if result.Error != nil {
-		return result.Error
+		return model.Agent{}, result.Error
 	}
 
-	return nil
+	return agent, nil
 }
 
 func (r *AgentRepoImpl) Get(ctx context.Context, agentID uint) (model.Agent, error) {
