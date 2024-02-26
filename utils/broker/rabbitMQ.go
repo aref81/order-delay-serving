@@ -20,13 +20,13 @@ func InitRabbitMQ(conf *config.Config) (*RabbitMQ, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer conn.Close()
+	//defer conn.Close()
 
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, err
 	}
-	defer ch.Close()
+	//defer ch.Close()
 
 	queue, err := ch.QueueDeclare(
 		conf.RabbitMQ.Queue,

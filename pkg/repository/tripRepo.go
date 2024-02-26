@@ -9,6 +9,7 @@ import (
 type TripRepo interface {
 	Create(ctx context.Context, trip model.Trip) (model.Trip, error)
 	Get(ctx context.Context, tripID uint) (model.Trip, error)
+	GetByOrderID(ctx context.Context, OrderID uint) (model.Trip, error)
 	Update(ctx context.Context, trip model.Trip) error
 	Delete(ctx context.Context, tripID uint) error
 }
@@ -35,6 +36,16 @@ func (r *TripRepoImpl) Create(ctx context.Context, trip model.Trip) (model.Trip,
 func (r *TripRepoImpl) Get(ctx context.Context, tripID uint) (model.Trip, error) {
 	var trip model.Trip
 	result := r.db.WithContext(ctx).Where(&model.Trip{ID: tripID}).First(&trip)
+	if result.Error != nil {
+		return model.Trip{}, result.Error
+	}
+
+	return trip, nil
+}
+
+func (r *TripRepoImpl) GetByOrderID(ctx context.Context, orderID uint) (model.Trip, error) {
+	var trip model.Trip
+	result := r.db.WithContext(ctx).Where(&model.Trip{OrderID: orderID}).First(&trip)
 	if result.Error != nil {
 		return model.Trip{}, result.Error
 	}

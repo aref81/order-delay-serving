@@ -5,6 +5,7 @@ import (
 	"OrderDelayServing/internal/config"
 	"OrderDelayServing/pkg/model"
 	"OrderDelayServing/pkg/repository"
+	"OrderDelayServing/utils/broker"
 	"OrderDelayServing/utils/datasources"
 	"github.com/sirupsen/logrus"
 )
@@ -25,7 +26,12 @@ func Run() {
 		logrus.Fatalf("failed to apply migrations: %v", err)
 	}
 
+	rabbit, err := broker.InitRabbitMQ(appConfig)
+	if err != nil {
+		logrus.Fatalf("failed to connect database: %v", err)
+	}
+
 	repos := repository.InitRepos(db)
 
-	http.Run(appConfig, repos)
+	http.Run(appConfig, repos, rabbit)
 }
