@@ -199,13 +199,6 @@ func (h *DelayReports) submitReview(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	//rID, err := strconv.ParseUint(c.Param("reportID"), 10, 32)
-	//reportID := uint(rID)
-	//
-	//if err != nil {
-	//	return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
-	//}
-
 	report, err := h.delayReportRepo.Get(c.Request().Context(), submission.ReportID)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
