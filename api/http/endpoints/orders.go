@@ -31,6 +31,7 @@ func (h *Orders) createNewOrder(c echo.Context) error {
 	}
 
 	newOrder.RegisteredAt = time.Now()
+	newOrder.DeliveryTime = newOrder.DeliveryTime * time.Minute
 
 	agent, err := h.orderRepo.Create(c.Request().Context(), *newOrder)
 	if err != nil {
