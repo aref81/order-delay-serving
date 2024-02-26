@@ -24,7 +24,7 @@ func NewTripRepo(db *gorm.DB) *TripRepoImpl {
 }
 
 func (r *TripRepoImpl) Create(ctx context.Context, trip model.Trip) (model.Trip, error) {
-	result := r.db.WithContext(ctx).Create(trip)
+	result := r.db.WithContext(ctx).Create(&trip)
 	if result.Error != nil {
 		return model.Trip{}, result.Error
 	}

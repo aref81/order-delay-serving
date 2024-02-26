@@ -24,7 +24,7 @@ func NewVendorRepo(db *gorm.DB) *VendorRepoImpl {
 }
 
 func (r *VendorRepoImpl) Create(ctx context.Context, vendor model.Vendor) (model.Vendor, error) {
-	result := r.db.WithContext(ctx).Create(vendor)
+	result := r.db.WithContext(ctx).Create(&vendor)
 	if result.Error != nil {
 		return model.Vendor{}, result.Error
 	}
