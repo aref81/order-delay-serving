@@ -4,6 +4,7 @@ import (
 	"OrderDelayServing/api/http"
 	"OrderDelayServing/internal/config"
 	"OrderDelayServing/pkg/model"
+	"OrderDelayServing/pkg/repository"
 	"OrderDelayServing/utils/datasources"
 	"github.com/sirupsen/logrus"
 )
@@ -24,5 +25,7 @@ func Run() {
 		logrus.Fatalf("failed to apply migrations: %v", err)
 	}
 
-	http.Run(appConfig, db)
+	repos := repository.InitRepos(db)
+
+	http.Run(appConfig, repos)
 }

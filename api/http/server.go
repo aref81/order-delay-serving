@@ -6,37 +6,16 @@ import (
 	"OrderDelayServing/pkg/repository"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	"gorm.io/gorm"
 )
 
-type repos struct {
-	agentRepo       *repository.AgentRepoImpl
-	delayReportRepo *repository.DelayReportRepoImpl
-	orderRepo       *repository.OrderRepoImpl
-	tripRepo        *repository.TripRepoImpl
-	vendorRepo      *repository.VendorRepoImpl
-}
-
-func initRepos(db *gorm.DB) *repos {
-	return &repos{
-		agentRepo:       repository.NewAgentRepo(db),
-		delayReportRepo: repository.NewDelayReportRepo(db),
-		orderRepo:       repository.NewOrderRepo(db),
-		tripRepo:        repository.NewTripRepo(db),
-		vendorRepo:      repository.NewVendorRepo(db),
-	}
-}
-
-func Run(conf *config.Config, db *gorm.DB) {
-	repos := initRepos(db)
-
+func Run(conf *config.Config, repos *repository.Repos) {
 	e := echo.New()
 
-	agents := endpoints.NewAgents(repos.agentRepo)
-	delayReports := endpoints.NewDelayReports(repos.delayReportRepo)
-	orders := endpoints.NewOrders(repos.orderRepo)
-	trips := endpoints.NewTrips(repos.tripRepo)
-	vendors := endpoints.NewVendors(repos.vendorRepo, repos.orderRepo)
+	agents := endpoints.NewAgents(repos.AgentRepo)
+	delayReports := endpoints.NewDelayReports(repos.DelayReportRepo)
+	orders := endpoints.NewOrders(repos.OrderRepo)
+	trips := endpoints.NewTrips(repos.TripRepo)
+	vendors := endpoints.NewVendors(repos.VendorRepo, repos.OrderRepo)
 
 	apiGroup := e.Group("/api")
 
