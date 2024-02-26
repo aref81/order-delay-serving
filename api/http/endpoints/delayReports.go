@@ -68,6 +68,7 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 		newReport.DelayAmount = newDelay
 	}
 
+	newReport.IssuedAt = time.Now()
 	report, err := h.delayReportRepo.Create(c.Request().Context(), *newReport)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": DBerr.Error()})
@@ -131,6 +132,15 @@ func (h *DelayReports) getQueuedReport(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusCreated, report)
+}
+
+func (h *DelayReports) getVendorsSummary(c echo.Context) error {
+	vendorsSummary, err := h.delayReportRepo.GetVendorsSummary(c.Request().Context())
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusOK, vendorsSummary)
 }
 
 func (h *DelayReports) enqueueReport(report *model.DelayReport) error {

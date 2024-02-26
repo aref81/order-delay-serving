@@ -9,6 +9,7 @@ import (
 type DelayReportRepo interface {
 	Create(ctx context.Context, report model.DelayReport) (model.DelayReport, error)
 	Get(ctx context.Context, reportID uint) (model.DelayReport, error)
+	GetVendorsSummary(ctx context.Context) ([]model.VendorDelaySummary, error)
 	Update(ctx context.Context, report model.DelayReport) error
 	Delete(ctx context.Context, reportID uint) error
 }
@@ -40,6 +41,21 @@ func (r *DelayReportRepoImpl) Get(ctx context.Context, reportID uint) (model.Del
 	}
 
 	return report, nil
+}
+
+func (r *DelayReportRepoImpl) GetVendorsSummary(ctx context.Context) ([]model.VendorDelaySummary, error) {
+	var vendorsSummery []model.VendorDelaySummary
+	result := r.db.Model(&model.VendorDelaySummary{}).
+		Select("vendor_id, SUM(extract(epoch from delay_amount)) AS total_delay_amount"). // Adjust based on actual storage format
+		Where("issued_at >= NOW() - INTERVAL '1 week'").
+		Group("vendor_id").
+		Order("total_delay_amount DESC").
+		Find(&vendorsSummery)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return vendorsSummery, nil
 }
 
 func (r *DelayReportRepoImpl) Update(ctx context.Context, report model.DelayReport) error {

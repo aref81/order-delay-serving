@@ -61,7 +61,3 @@ func (h *Vendors) getVendorByID(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, vendor)
 }
-
-func (h *Vendors) getDelayReport(c echo.Context) error {
-	return nil
-}
