@@ -5,8 +5,9 @@ import (
 )
 
 type Config struct {
-	Database DBConfig     `mapstructure:"database"`
-	Server   ServerConfig `mapstructure:"server"`
+	Database DBConfig       `mapstructure:"database"`
+	Server   ServerConfig   `mapstructure:"server"`
+	RabbitMQ RabbitMQConfig `mapstructure:"rabbit"`
 }
 
 type ServerConfig struct {
@@ -20,6 +21,14 @@ type DBConfig struct {
 	DBName   string `mapstructure:"dbname"`
 	User     string `mapstructure:"user"`
 	Password string `mapstructure:"password"`
+}
+
+type RabbitMQConfig struct {
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Queue    string `mapstructure:"queue"`
 }
 
 func LoadConfig() (*Config, error) {
