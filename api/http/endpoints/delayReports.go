@@ -6,7 +6,6 @@ import (
 	"OrderDelayServing/utils/broker"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/labstack/echo/v4"
 	"github.com/streadway/amqp"
 	"gorm.io/gorm"
@@ -74,8 +73,8 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": DBerr.Error()})
 	}
 
-	if errors.Is(DBerr, gorm.ErrRecordNotFound) || !(trip.Status == model.TripStatusAssigned || trip.Status == model.TripStatusPicked ||
-		trip.Status == model.TripStatusAtVendor) {
+	if errors.Is(DBerr, gorm.ErrRecordNotFound) || !(trip.Status == model.TripStatusAssigned ||
+		trip.Status == model.TripStatusPicked || trip.Status == model.TripStatusAtVendor) {
 		err := h.enqueueReport(&report)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to send report ID to RabbitMQ"})
@@ -86,16 +85,61 @@ func (h *DelayReports) reportDelay(c echo.Context) error {
 }
 
 func (h *DelayReports) getQueuedReport(c echo.Context) error {
-	return nil
+	aID, err := strconv.ParseUint(c.Param("id"), 10, 32)
+	agentID := uint(aID)
+
+	if err != nil {
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": "invalid id"})
+	}
+
+	agent, err := h.agentRepo.Get(c.Request().Context(), agentID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
+	if !agent.IsAvailable {
+		return c.JSON(http.StatusNotAcceptable, map[string]string{"error": err.Error()})
+	}
+
+	reportID, err := h.dequeueReport()
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
+	report, err := h.delayReportRepo.Get(c.Request().Context(), reportID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
+	trip, err := h.tripRepo.GetByOrderID(c.Request().Context(), report.OrderID)
+	if err != nil {
+		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
+	}
+
+	trip.Status = model.TripStatusOnReview
+
+	err = h.tripRepo.Update(c.Request().Context(), trip)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	agent.CurrentReportID = reportID
+	agent.IsAvailable = false
+	err = h.agentRepo.Update(c.Request().Context(), agent)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	}
+
+	return c.JSON(http.StatusCreated, report)
 }
 
 func (h *DelayReports) enqueueReport(report *model.DelayReport) error {
 	body := strconv.FormatUint(uint64(report.ID), 10)
 	err := h.rabbit.Channel.Publish(
-		"",                  // exchange
-		h.rabbit.Queue.Name, // routing key (queue name)
-		false,               // mandatory
-		false,               // immediate
+		"",
+		h.rabbit.Queue.Name,
+		false,
+		false,
 		amqp.Publishing{
 			ContentType: "text/plain",
 			Body:        []byte(body),
@@ -107,20 +151,38 @@ func (h *DelayReports) enqueueReport(report *model.DelayReport) error {
 	return nil
 }
 
+func (h *DelayReports) dequeueReport() (uint, error) {
+	msg, ok, err := h.rabbit.Channel.Get(
+		h.rabbit.Queue.Name,
+		true,
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	if !ok {
+		return 0, errors.New("empty queue")
+	}
+
+	rID, err := strconv.ParseUint(string(msg.Body), 10, 32)
+
+	return uint(rID), nil
+}
+
 func requestNewDelay() (time.Duration, error) {
 	resp, err := http.Get("https://run.mocky.io/v3/9f1ba24e-a43f-448a-bcde-c0737a84093f")
 	if err != nil {
-		return 0, fmt.Errorf("error making request: %w", err)
+		return 0, errors.New("error making request: " + err.Error())
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return 0, fmt.Errorf("API request returned status code: %d", resp.StatusCode)
+		return 0, errors.New("API request returned status: " + resp.Status)
 	}
 
 	var delayResp DelayResponse
 	if err := json.NewDecoder(resp.Body).Decode(&delayResp); err != nil {
-		return 0, fmt.Errorf("error decoding response: %w", err)
+		return 0, errors.New("error decoding response: " + err.Error())
 	}
 
 	delayDuration := time.Duration(delayResp.Delay) * time.Second
