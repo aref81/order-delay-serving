@@ -4,13 +4,13 @@ server:
 
 database:
   port: 5432
-  address: localhost
+  address: postgres
   user: postgres
   password: postgres
   dbname: postgres
 
 rabbit:
-  host: localhost
+  host: rabbitmq
   port: 5672
   user: guest
   password: guest

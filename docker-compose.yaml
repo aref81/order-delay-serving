@@ -1,0 +1,28 @@
+version: '3'
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    image: rabbitmq:management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  service:
+    container_name: service
+    build:
+      dockerfile: Dockerfile
+    volumes:
+      - ./config/config.yaml:/config/config.yaml
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - rabbitmq
