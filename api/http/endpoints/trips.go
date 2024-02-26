@@ -20,6 +20,7 @@ func (h *Trips) NewTripsHandler(g *echo.Group) {
 	tripsGroup := g.Group("/trips")
 
 	tripsGroup.POST("", h.createNewTrip)
+	tripsGroup.GET("/:id", h.getTripByID)
 }
 
 func (h *Trips) createNewTrip(c echo.Context) error {

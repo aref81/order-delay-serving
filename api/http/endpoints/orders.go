@@ -21,6 +21,7 @@ func (h *Orders) NewOrdersHandler(g *echo.Group) {
 	ordersGroup := g.Group("/orders")
 
 	ordersGroup.POST("", h.createNewOrder)
+	ordersGroup.GET("/:id", h.getOrderByID)
 }
 
 func (h *Orders) createNewOrder(c echo.Context) error {
