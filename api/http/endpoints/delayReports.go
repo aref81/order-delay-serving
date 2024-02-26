@@ -45,6 +45,7 @@ func (h *DelayReports) NewDelayReportsHandler(g *echo.Group) {
 
 	reportsGroup.POST("", h.reportDelay)
 	reportsGroup.GET("/:agentID", h.getQueuedReport)
+	reportsGroup.GET("", h.getVendorsSummary)
 }
 
 func (h *DelayReports) reportDelay(c echo.Context) error {

@@ -4,6 +4,7 @@ import (
 	"OrderDelayServing/pkg/model"
 	"context"
 	"gorm.io/gorm"
+	"time"
 )
 
 type DelayReportRepo interface {
@@ -45,15 +46,12 @@ func (r *DelayReportRepoImpl) Get(ctx context.Context, reportID uint) (model.Del
 
 func (r *DelayReportRepoImpl) GetVendorsSummary(ctx context.Context) ([]model.VendorDelaySummary, error) {
 	var vendorsSummery []model.VendorDelaySummary
-	result := r.db.Model(&model.VendorDelaySummary{}).
-		Select("vendor_id, SUM(extract(epoch from delay_amount)) AS total_delay_amount"). // Adjust based on actual storage format
-		Where("issued_at >= NOW() - INTERVAL '1 week'").
+	r.db.Model(&model.DelayReport{}).
+		Select("vendor_id, SUM(delay_amount) as total_delay_amount").
+		Where("issued_at >= ?", time.Now().AddDate(0, 0, -7)).
 		Group("vendor_id").
-		Order("total_delay_amount DESC").
+		Order("total_delay_amount").
 		Find(&vendorsSummery)
-	if result.Error != nil {
-		return nil, result.Error
-	}
 
 	return vendorsSummery, nil
 }
